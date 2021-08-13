@@ -4,7 +4,6 @@ import (
 	"github.com/alecthomas/kong"
 	log "github.com/sirupsen/logrus"
 	"github.com/unravellingtechnologies/kgv/lib/fs"
-	"github.com/unravellingtechnologies/kgv/pkg/certs"
 	"os"
 )
 
@@ -14,7 +13,7 @@ type CLI struct {
 		// Don't want to define defaults for cert and key. If they are user defined, then should exit on error
 		// if files are not found. If using the defaults, then generates a default certificate
 		TlsCert string `help:"TLS Certificate for the HTTPS server"`
-		TlsKey string `help:"TLS Key for the HTTPS server"`
+		TlsKey  string `help:"TLS Key for the HTTPS server"`
 	} `cmd default:"withargs" help:"Starts the server."`
 }
 
@@ -29,7 +28,7 @@ func Parse() (*kong.Context, *CLI) {
 
 func ParseOpts(cli *CLI) (port string, tlsCert string, tlsKey string) {
 	if cli.Start.TlsCert != "" || cli.Start.TlsKey != "" {
-		if ! fs.Exists(cli.Start.TlsCert) || ! fs.Exists(cli.Start.TlsKey) {
+		if !fs.Exists(cli.Start.TlsCert) || !fs.Exists(cli.Start.TlsKey) {
 			log.Error("configured certificates not found")
 			os.Exit(1)
 		}
@@ -42,7 +41,7 @@ func ParseOpts(cli *CLI) (port string, tlsCert string, tlsKey string) {
 		tlsCert = defaultPath + "/tls.crt"
 		tlsKey = defaultPath + "/etc/kgv/certs/tls.key"
 
-		certs.GenerateCerts(defaultPath)
+		// certs.GenerateCerts(defaultPath)
 	}
 
 	return cli.Start.Port, tlsCert, tlsKey
