@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	log "github.com/sirupsen/logrus"
-	"github.com/unravellingtechnologies/kgv/pkg/certs"
+	certs "github.com/unravellingtechnologies/kgv/lib/certs"
 	"github.com/unravellingtechnologies/kgv/pkg/cli"
+	"github.com/unravellingtechnologies/kgv/pkg/webhook"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 var (
@@ -17,12 +22,6 @@ func init() {
 	log.SetLevel(log.InfoLevel)
 }
 
-func HelloWorld(w http.ResponseWriter, req *http.Request) {
-	w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte("Hello world!\n"))
-}
-
 func main() {
 	ctx, cliOpts := cli.Parse()
 	port, tlsCert, tlsKey = cli.ParseOpts(cliOpts)
@@ -32,15 +31,12 @@ func main() {
 		panic(ctx.Command())
 	}
 
-	// cert, _ := tls.LoadX509KeyPair(tlsCert, tlsKey)
-
 	serverTLSConf, _, err := certs.TLSSetup(tlsCert, tlsKey)
 	if err != nil {
 		panic(err)
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", HelloWorld)
+	mux := webhook.SetupListeners()
 
 	s := &http.Server{
 		Addr:      ":" + port,
@@ -48,6 +44,21 @@ func main() {
 		TLSConfig: serverTLSConf,
 	}
 
+	go func() {
+		if err := s.ListenAndServeTLS("", ""); err != nil {
+			log.Errorf("Failed to listen and serve: %v", err)
+		}
+	}()
+
 	log.Info("Listening for requests on port ", port)
-	log.Fatal(s.ListenAndServeTLS("", ""))
+
+	// listen shutdown signal
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	<-signalChan
+
+	log.Infof("Shutdown gracefully...")
+	if err := s.Shutdown(context.Background()); err != nil {
+		log.Error(err)
+	}
 }

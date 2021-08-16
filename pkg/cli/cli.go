@@ -1,3 +1,4 @@
+// Package cli has the functions to process the command line interface options
 package cli
 
 import (
@@ -21,11 +22,13 @@ const defaultPath = "/etc/kgv/certs"
 
 var options CLI
 
+// Parse function parses the CLI options (heavy lifting done by kong)
 func Parse() (*kong.Context, *CLI) {
 	ctx := kong.Parse(&options, kong.Configuration(kong.JSON, "/etc/kgv/config.json", "~/.kgv/config.json"))
 	return ctx, &options
 }
 
+// ParseOpts processes the parsed the options on the cli into usable values in our application
 func ParseOpts(cli *CLI) (port string, tlsCert string, tlsKey string) {
 	if cli.Start.TlsCert != "" || cli.Start.TlsKey != "" {
 		if !fs.Exists(cli.Start.TlsCert) || !fs.Exists(cli.Start.TlsKey) {
@@ -36,12 +39,6 @@ func ParseOpts(cli *CLI) (port string, tlsCert string, tlsKey string) {
 		// User provided certificates found, will be used
 		tlsCert = cli.Start.TlsCert
 		tlsKey = cli.Start.TlsKey
-	} else {
-		// User didn't provide certificate paths, will set defaults and generate
-		tlsCert = defaultPath + "/tls.crt"
-		tlsKey = defaultPath + "/etc/kgv/certs/tls.key"
-
-		// certs.GenerateCerts(defaultPath)
 	}
 
 	return cli.Start.Port, tlsCert, tlsKey
