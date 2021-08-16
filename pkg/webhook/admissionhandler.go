@@ -29,32 +29,8 @@ func newAdmissionHandler() *admissionHandler {
 func (h *admissionHandler) Serve(hook handlers.Hook) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if r.Method != http.MethodPost {
-			http.Error(w, fmt.Sprint("invalid method only POST requests are allowed"), http.StatusMethodNotAllowed)
-			return
-		}
 
-		if contentType := r.Header.Get("Content-Type"); contentType != "application/json" {
-			http.Error(w, fmt.Sprint("only content type 'application/json' is supported"), http.StatusBadRequest)
-			return
-		}
-
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("could not read request body: %v", err), http.StatusBadRequest)
-			return
-		}
-
-		var review admission.AdmissionReview
-		if _, _, err := h.decoder.Decode(body, nil, &review); err != nil {
-			http.Error(w, fmt.Sprintf("could not deserialize request: %v", err), http.StatusBadRequest)
-			return
-		}
-
-		if review.Request == nil {
-			http.Error(w, "malformed admission review: request is nil", http.StatusBadRequest)
-			return
-		}
+		review := parseRequest(h, w, r)
 
 		result, err := hook.Execute(review.Request)
 		if err != nil {
@@ -96,4 +72,36 @@ func (h *admissionHandler) Serve(hook handlers.Hook) http.HandlerFunc {
 			return
 		}
 	}
+}
+
+// parseRequest performs the validations to ensure the request is valid and well-formed
+func parseRequest(h *admissionHandler, w http.ResponseWriter, r *http.Request) *admission.AdmissionReview {
+	if r.Method != http.MethodPost {
+		http.Error(w, fmt.Sprint("invalid method only POST requests are allowed"), http.StatusMethodNotAllowed)
+		return nil
+	}
+
+	if contentType := r.Header.Get("Content-Type"); contentType != "application/json" {
+		http.Error(w, fmt.Sprint("only content type 'application/json' is supported"), http.StatusBadRequest)
+		return nil
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("could not read request body: %v", err), http.StatusBadRequest)
+		return nil
+	}
+
+	var review admission.AdmissionReview
+	if _, _, err := h.decoder.Decode(body, nil, &review); err != nil {
+		http.Error(w, fmt.Sprintf("could not deserialize request: %v", err), http.StatusBadRequest)
+		return nil
+	}
+
+	if review.Request == nil {
+		http.Error(w, "malformed admission review: request is nil", http.StatusBadRequest)
+		return nil
+	}
+
+	return &review
 }
