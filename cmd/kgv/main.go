@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"github.com/fsnotify/fsnotify"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	certs "github.com/unravellingtechnologies/kgv/lib/certs"
 	"github.com/unravellingtechnologies/kgv/pkg/cli"
 	"github.com/unravellingtechnologies/kgv/pkg/webhook"
@@ -16,10 +19,28 @@ var (
 	port, tlsCert, tlsKey string
 )
 
+func initConfig() {
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("/etc/kgv/")
+	viper.AddConfigPath("$HOME/.kgv")
+	viper.AddConfigPath(".")
+	viper.WatchConfig()
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		fmt.Println("Config file changed:", e.Name)
+	})
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(fmt.Errorf("Fatal error config file: %w \n", err))
+	}
+}
+
 func init() {
 	// Initialize logging
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetLevel(log.InfoLevel)
+
+	initConfig()
 }
 
 func main() {
